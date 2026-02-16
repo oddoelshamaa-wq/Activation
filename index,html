@@ -122,8 +122,9 @@
 
             // --- إعدادات الأكواد والروابط ---
             const config = {
-                "abn100": "https://oddoelshamaa-wq.github.io/abn-misr/",
-                "nosdasta": "https://oddoelshamaa-wq.github.io/Half-package/nos%20dasta.html"
+                "نص دسته": "https://oddoelshamaa-wq.github.io/Activation/nos.html",
+                "ابن مصر": "https://oddoelshamaa-wq.github.io/Activation/ibn.html"
+                "ابن مصر": "https://oddoelshamaa-wq.github.io/Activation/ibn.html"             
             };
 
             // التحقق من الكود
