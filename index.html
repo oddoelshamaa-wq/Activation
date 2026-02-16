@@ -117,13 +117,15 @@
 
     <script>
         function redirectToProject() {
-            const code = document.getElementById('code-field').value.trim();
+            const codeField = document.getElementById('code-field');
+            const code = codeField.value.trim();
             const errorElement = document.getElementById('error');
 
             // --- إعدادات الأكواد والروابط ---
+            // تم إصلاح الفواصل المفقودة هنا
             const config = {
                 "نص دسته": "https://oddoelshamaa-wq.github.io/Activation/nos.html",
-                "ابن مصر": "https://oddoelshamaa-wq.github.io/Activation/ibn.html"
+                "ابن مصر": "https://oddoelshamaa-wq.github.io/Activation/ibn.html",
                 "ابن البلد": "https://oddoelshamaa-wq.github.io/Activation/balad.html"             
             };
 
@@ -135,11 +137,11 @@
             } else {
                 // إظهار رسالة خطأ
                 errorElement.style.display = 'block';
-                document.getElementById('code-field').value = '';
+                codeField.value = '';
+                codeField.focus();
             }
         }
 
-        // وظيفة للسماح بالدخول عند الضغط على زر Enter
         function checkEnter(event) {
             if (event.key === "Enter") {
                 redirectToProject();
