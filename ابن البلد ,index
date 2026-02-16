@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الاشتراكات - مدة حرة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #121212; color: white; font-family: 'Tajawal', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
+        .box { background: #1e1e1e; padding: 30px; border-radius: 15px; width: 100%; max-width: 450px; text-align: center; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 8px; font-size: 15px; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn:active { transform: scale(0.98); }
+        .btn-danger { background: #c62828; color: white; }
+        .btn-success { background: #2e7d32; color: white; }
+        .btn-primary { background: #1976d2; color: white; }
+        .btn-outline { background: transparent; border: 1px solid #555; color: #aaa; margin-top: 20px; width: 100%;}
+        
+        input { width: 100%; padding: 10px; margin-top: 10px; background: #333; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; outline: none; text-align: center;}
+        input:focus { border-color: var(--primary); }
+        
+        /* Subscription Card */
+        .sub-card { 
+            background: #2a2a2a; 
+            padding: 20px; 
+            border-radius: 12px; 
+            margin-bottom: 20px; 
+            border: 2px solid #333;
+        }
+        .sub-card.active { border-color: #2e7d32; }
+        .sub-card.expired { border-color: #c62828; }
+
+        .sub-title { font-size: 18px; color: #aaa; margin-bottom: 10px; }
+        .timer-big { font-size: 36px; font-weight: 900; margin: 10px 0; direction: ltr; font-family: monospace; }
+        .active .timer-big { color: #2e7d32; }
+        .expired .timer-big { color: #c62828; }
+        
+        .expiry-date { font-size: 14px; color: #fff; background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 5px; display: inline-block; margin-bottom: 5px;}
+
+        .custom-input-group {
+            background: #333;
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .custom-input-group input { margin-top: 0; text-align: center; font-size: 18px; font-weight: bold;}
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2 style="margin-bottom: 15px;">إدارة الاشتراكات</h2>
+        
+        <!-- Subscription Status -->
+        <div id="sub-status-card" class="sub-card expired">
+            <div class="sub-title">المدة المتبقية</div>
+            <div id="countdown" class="timer-big">00:00:00:00</div>
+            <div id="expiry-text" class="expiry-date">لم يتم التفعيل بعد</div>
+        </div>
+
+        <!-- Custom Duration Input -->
+        <label style="display:block; text-align:right; font-size:14px; margin-bottom:5px;">إضافة مدة اشتراك (بالأيام):</label>
+        <div class="custom-input-group">
+            <input type="number" id="days-input" placeholder="اكتب الرقم هنا (مثال: 30)">
+            <button class="btn btn-success" style="width: auto; padding: 10px 20px;" onclick="extendSub()">
+                <i class="fas fa-plus"></i> إضافة
+            </button>
+        </div>
+
+        <!-- Manual Lock Settings -->
+        <div style="margin-top: 20px; text-align: right;">
+            <label style="font-size:12px; color:#aaa;">رسالة العميل عند القفل:</label>
+            <input type="text" id="custom-reason" placeholder="رسالة تظهر للعميل...">
+        </div>
+
+        <button id="btn-manual-lock" class="btn btn-danger" onclick="manualToggle(true)" style="margin-top: 15px;">
+            <i class="fas fa-lock"></i> قفل يدوي
+        </button>
+        <button id="btn-manual-unlock" class="btn btn-success hidden" onclick="manualToggle(false)">
+            <i class="fas fa-unlock"></i> فتح يدوي
+        </button>
+        
+        <button class="btn btn-outline" onclick="resetData()">⚠️ تهيئة النظام</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB1J7lSkqHHShPlkvtIUwpgmgsGqJ1uhJQ",
+            authDomain: "sheikh-pro-61502.firebaseapp.com",
+            projectId: "sheikh-pro-61502",
+            storageBucket: "sheikh-pro-61502.firebasestorage.app",
+            messagingSenderId: "388665698743",
+            appId: "1:388665698743:web:7eca2bfc0223f9c1736032",
+            measurementId: "G-5F3J5S68LP"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        let expiryTimestamp = null;
+        let manualLock = false;
+
+        onValue(ref(db, 'config'), (snap) => {
+            const conf = snap.val();
+            const card = document.getElementById('sub-status-card');
+            const countdown = document.getElementById('countdown');
+            const expiryText = document.getElementById('expiry-text');
+            const customReasonInput = document.getElementById('custom-reason');
+            const btnManualLock = document.getElementById('btn-manual-lock');
+            const btnManualUnlock = document.getElementById('btn-manual-unlock');
+
+            if (conf) {
+                expiryTimestamp = conf.expiryDate || null;
+                manualLock = conf.manualLocked || false;
+
+                if(conf.reason) customReasonInput.value = conf.reason;
+
+                // 1. Manual Lock Check
+                if (manualLock) {
+                    card.className = 'sub-card expired';
+                    countdown.innerText = "مقفول يدوياً";
+                    expiryText.innerText = "النظام مغلق من المدير";
+                    btnManualLock.classList.add('hidden');
+                    btnManualUnlock.classList.remove('hidden');
+                    return;
+                }
+
+                // 2. Subscription Check
+                const now = Date.now();
+                
+                if (!expiryTimestamp) {
+                    card.className = 'sub-card expired';
+                    countdown.innerText = "--:--:--:--";
+                    expiryText.innerText = "لا يوجد اشتراك";
+                    btnManualLock.classList.remove('hidden');
+                    btnManualUnlock.classList.add('hidden');
+                    checkAndLockAuto(now, null);
+                } 
+                else if (now > expiryTimestamp) {
+                    card.className = 'sub-card expired';
+                    countdown.innerText = "00:00:00:00";
+                    expiryText.innerText = "انتهاء الاشتراك: " + new Date(expiryTimestamp).toLocaleDateString('ar-EG');
+                    btnManualLock.classList.remove('hidden');
+                    btnManualUnlock.classList.add('hidden');
+                    checkAndLockAuto(now, expiryTimestamp);
+                } 
+                else {
+                    card.className = 'sub-card active';
+                    const diff = expiryTimestamp - now;
+                    countdown.innerText = formatTime(diff);
+                    expiryText.innerText = "تنتهي في: " + new Date(expiryTimestamp).toLocaleString('ar-EG');
+                    btnManualLock.classList.remove('hidden');
+                    btnManualUnlock.classList.add('hidden');
+                    checkAndLockAuto(now, expiryTimestamp);
+                }
+            }
+        });
+
+        function checkAndLockAuto(now, expiry) {
+            let isLocked = false;
+            let reason = "";
+            const customReason = document.getElementById('custom-reason').value;
+
+            if (manualLock) {
+                isLocked = true;
+                reason = customReason || "النظام مغلق";
+            } else if (expiry && now > expiry) {
+                isLocked = true;
+                reason = customReason || "عذراً، انتهت صلاحية الاشتراك.";
+            } else {
+                isLocked = false;
+                reason = "";
+            }
+
+            const updates = { locked: isLocked, reason: reason };
+            if(!manualLock) updates.manualLocked = false;
+            if(!isLocked) updates.reason = "";
+
+            set(ref(db, 'config'), { ...{expiryDate: expiryTimestamp}, ...updates });
+        }
+
+        // Extend Subscription (Read from Input)
+        window.extendSub = () => {
+            const input = document.getElementById('days-input');
+            const days = parseInt(input.value);
+
+            if (!days || days <= 0) {
+                alert("الرجاء كتابة عدد أيام صحيح!");
+                return;
+            }
+
+            let baseTime = Date.now();
+            if (expiryTimestamp && Date.now() < expiryTimestamp) {
+                baseTime = expiryTimestamp; // Add to existing time
+            }
+
+            const newExpiry = baseTime + (days * 24 * 60 * 60 * 1000);
+            
+            set(ref(db, 'config'), {
+                locked: false,
+                expiryDate: newExpiry,
+                manualLocked: false,
+                reason: ''
+            });
+            
+            alert(`تم إضافة ${days} يوم بنجاح!`);
+            input.value = ""; // Clear input
+        };
+
+        window.manualToggle = (lock) => {
+            const reason = document.getElementById('custom-reason').value;
+            set(ref(db, 'config'), {
+                manualLocked: lock,
+                locked: lock,
+                reason: lock ? reason : ''
+            });
+        };
+
+        setInterval(() => {
+            if(expiryTimestamp) {
+                const now = Date.now();
+                if (now < expiryTimestamp) {
+                    document.getElementById('countdown').innerText = formatTime(expiryTimestamp - now);
+                } else {
+                    document.getElementById('countdown').innerText = "00:00:00:00";
+                    checkAndLockAuto(now, expiryTimestamp);
+                }
+            }
+        }, 1000);
+
+        function formatTime(ms) {
+            const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        window.resetData = () => {
+            if(confirm('تحذير: سيتم مسح جميع البيانات!')) {
+                remove(ref(db, 'orders'));
+                remove(ref(db, 'menu'));
+                remove(ref(db, 'tables'));
+                remove(ref(db, 'config'));
+                alert('تم المسح');
+            }
+        };
+    </script>
+
+    <script>
+        // 1. منع القائمة اليمنى (Right Click)
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // 2. منع اختصارات لوحة التحكم (F12, Ctrl+Shift+I, Ctrl+U)
+        document.onkeydown = function(e) {
+            // منع F12
+            if (e.keyCode == 123) return false;
+
+            // منع Ctrl+Shift+I (Inspect)
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
+
+            // منع Ctrl+Shift+J (Console)
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false;
+
+            // منع Ctrl+U (View Source)
+            if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
+
+            // منع Ctrl+S (Save Page)
+            if (e.ctrlKey && e.keyCode == 'S'.charCodeAt(0)) return false;
+        };
+
+        // 3. تعطيل خاصية السحب والإفلات للصور (لحماية صور المنيو)
+        document.addEventListener('dragstart', event => event.preventDefault());
+
+        // تحذير في الكونسول
+        setInterval(() => {
+            console.clear();
+            console.log("%cتحذير!", "color: red; font-size: 50px; font-weight: bold;");
+            console.log("%cهذه المنطقة مخصصة للمطورين فقط. محاولة الدخول غير المصرح به تعرضك للمساءلة القانونية.", "font-size: 20px;");
+        }, 1000);
+    </script>
+</body>
+</html>
