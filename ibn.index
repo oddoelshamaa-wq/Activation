@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>لوحة التحكم V49 - التفعيل المزدوج</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --gold: #fbbf24; --bg: #0f172a; --card: #1e293b; --danger: #ef4444; --success: #10b981; }
+        body { background: var(--bg); color: white; font-family: 'Cairo', sans-serif; display: flex; justify-content: center; padding: 20px; }
+        .admin-box { background: var(--card); padding: 30px; border-radius: 20px; width: 100%; max-width: 500px; border: 1px solid #334155; }
+        .status-box { background: #0d1117; padding: 20px; border-radius: 15px; border-right: 5px solid var(--gold); margin-bottom: 25px; text-align: center; }
+        .timer-display { font-family: monospace; font-size: 2.5rem; color: var(--gold); margin: 5px 0; direction: ltr; font-weight: 900; }
+        .status-label { font-size: 14px; font-weight: bold; margin-bottom: 8px; display: block; }
+        .grace-indicator { background: #7f1d1d; color: #fca5a5; padding: 5px; border-radius: 5px; font-size: 12px; margin-top: 10px; display: none; }
+        input { width: 100%; padding: 15px; margin: 8px 0; background: #0d1117; border: 1px solid #334155; color: white; border-radius: 10px; text-align: center; font-size: 1.1rem; box-sizing: border-box; }
+        label { font-size: 13px; color: #94a3b8; display: block; text-align: right; }
+        .btn-update { width: 100%; padding: 18px; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; background: var(--gold); color: #000; font-size: 1.2rem; margin-top: 20px; }
+        .btn-lock { width: 100%; padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; background: var(--danger); color: white; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="admin-box">
+    <h2 style="text-align: center; margin-bottom: 20px;">إدارة التراخيص الشاملة</h2>
+    
+    <div class="status-box">
+        <span class="status-label" id="main-status">جاري المزامنة...</span>
+        <div id="ui-countdown" class="timer-display">00:00:00:00</div>
+        <div id="grace-info" class="grace-indicator">⚠️ العميل يستهلك من فترة السماح حالياً</div>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+        <div style="flex:1"><label>أيام الاشتراك:</label><input type="number" id="in-days" value="0"></div>
+        <div style="flex:1"><label>ساعات إضافية:</label><input type="number" id="in-hours" value="0"></div>
+    </div>
+
+    <label>أيام السماح الاحتياطية (بعد الانتهاء):</label>
+    <input type="number" id="in-grace" value="0">
+
+    <label>بيانات الدفع للتواصل:</label>
+    <input type="text" id="in-phone" placeholder="رقم الواتساب">
+    <input type="text" id="in-acc" placeholder="رقم الحساب">
+    <input type="text" id="in-name" placeholder="اسم صاحب الحساب">
+
+    <button class="btn-update" onclick="fullActivate()">حفظ وتفعيل (الأساسي + السماح) <i class="fas fa-rocket"></i></button>
+    <button id="lock-btn" class="btn-lock" onclick="toggleLock()"></button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCcgHfPeVGSA699yFPH24AP5jt7VJgzYyw",
+        authDomain: "abn-maser-21fdb.firebaseapp.com",
+        databaseURL: "https://abn-maser-21fdb-default-rtdb.firebaseio.com",
+        projectId: "abn-maser-21fdb",
+        appId: "1:921105330552:web:95f87a56b524b15f7f188d"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    let currentConfig = {};
+
+    db.ref('config').on('value', snap => {
+        currentConfig = snap.val() || {};
+        document.getElementById('in-phone').value = currentConfig.payPhone || "";
+        document.getElementById('in-acc').value = currentConfig.accNumber || "";
+        document.getElementById('in-name').value = currentConfig.accName || "";
+        document.getElementById('in-grace').value = currentConfig.graceDays || 0;
+
+        const lockBtn = document.getElementById('lock-btn');
+        lockBtn.innerHTML = currentConfig.manualLocked ? '<i class="fas fa-unlock"></i> فتح النظام يدوياً' : '<i class="fas fa-lock"></i> قفل النظام فوراً';
+        lockBtn.style.background = currentConfig.manualLocked ? "#10b981" : "#ef4444";
+    });
+
+    function fullActivate() {
+        const d = parseInt(document.getElementById('in-days').value) || 0;
+        const h = parseInt(document.getElementById('in-hours').value) || 0;
+        const grace = parseInt(document.getElementById('in-grace').value) || 0;
+
+        // تصفير وبدء اشتراك جديد من الآن
+        const msToAdd = (d * 24 * 60 * 60 * 1000) + (h * 60 * 60 * 1000);
+        const newExpiry = Date.now() + msToAdd;
+
+        db.ref('config').set({
+            expiryDate: newExpiry, // الاشتراك الأساسي
+            graceDays: grace,      // فترة السماح
+            payPhone: document.getElementById('in-phone').value,
+            accNumber: document.getElementById('in-acc').value,
+            accName: document.getElementById('in-name').value,
+            manualLocked: false
+        }).then(() => {
+            alert("✅ تم تفعيل الاشتراك بنجاح!\nالأساسي: " + d + " يوم\nالسماح: " + grace + " يوم");
+            document.getElementById('in-days').value = 0;
+            document.getElementById('in-hours').value = 0;
+        });
+    }
+
+    function toggleLock() { db.ref('config/manualLocked').set(!currentConfig.manualLocked); }
+
+    setInterval(() => {
+        const now = Date.now();
+        const exp = currentConfig.expiryDate || 0;
+        const graceMs = (currentConfig.graceDays || 0) * 24 * 60 * 60 * 1000;
+        const hardLock = exp + graceMs;
+
+        const display = document.getElementById('ui-countdown');
+        const status = document.getElementById('main-status');
+        const graceInfo = document.getElementById('grace-info');
+
+        if (currentConfig.manualLocked) {
+            status.innerText = "النظام مقفل يدوياً";
+            display.innerText = "LOCKED";
+            display.style.color = "#ef4444";
+            graceInfo.style.display = "none";
+            removeExpiryWarning();
+        } else if (now < exp) {
+            const timeLeft = exp - now;
+            const alertThreshold = 24 * 60 * 60 * 1000; // 24 hours
+
+            status.innerText = "الاشتراك الأساسي نشط";
+            status.style.color = "#10b981";
+            display.innerText = formatTime(timeLeft);
+            display.style.color = "#fbbf24";
+            graceInfo.style.display = "none";
+
+            if (timeLeft <= alertThreshold) {
+                renderNormalWarning(timeLeft);
+            } else {
+                removeExpiryWarning();
+            }
+        } else if (now >= exp && now < hardLock) {
+            status.innerText = "انتهى الاشتراك - فترة سماح";
+            status.style.color = "#ef4444";
+            display.innerText = formatTime(hardLock - now);
+            display.style.color = "#ef4444";
+            graceInfo.style.display = "block";
+            renderGraceWarning(hardLock - now);
+        } else {
+            status.innerText = "الاشتراك منتهي تماماً";
+            display.innerText = "00:00:00:00";
+            display.style.color = "#ef4444";
+            graceInfo.style.display = "none";
+            removeExpiryWarning();
+        }
+    }, 1000);
+
+    function formatTime(ms) {
+        const d = Math.floor(ms / (24 * 60 * 60 * 1000));
+        const h = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+        const m = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+        const s = Math.floor((ms % (60 * 1000)) / 1000);
+        return `${d.toString().padStart(2,'0')}:${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    // --- محرك الحماية V53 (تطابق العدادات بين البائع والعميل) ---
+
+    function renderNormalWarning(ms) {
+        let bar = document.getElementById('expiry-warning-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'expiry-warning-bar';
+            document.body.prepend(bar);
+        }
+
+        // الحساب بنظام (أيام : ساعات : دقائق : ثواني)
+        const d = Math.floor(ms / (1000 * 60 * 60 * 24));
+        const h = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((ms % (1000 * 60)) / 1000);
+
+        // التنسيق ليطابق لوحة تحكمك تماماً
+        const timeStr = `${d.toString().padStart(2,'0')}:${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+
+        bar.style = "background:#fbbf24; color:#000; text-align:center; padding:4px 10px; font-weight:800; font-size:12px; position:sticky; top:0; z-index:9999; direction:rtl; border-bottom:1px solid rgba(0,0,0,0.1);";
+        bar.innerHTML = `<i class="fas fa-clock fa-spin"></i> تنبيه: ينتهي الاشتراك خلال (${timeStr}). يرجى التجديد.`;
+    }
+
+    function renderGraceWarning(ms) {
+        let bar = document.getElementById('expiry-warning-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'expiry-warning-bar';
+            document.body.prepend(bar);
+        }
+
+        const d = Math.floor(ms / (1000 * 60 * 60 * 24));
+        const h = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((ms % (1000 * 60)) / 1000);
+
+        const timeStr = `${d.toString().padStart(2,'0')}:${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+
+        bar.style = "background:#ef4444; color:#fff; text-align:center; padding:6px 10px; font-weight:bold; font-size:12px; position:sticky; top:0; z-index:9999; direction:rtl; box-shadow:0 2px 10px rgba(0,0,0,0.3);";
+        bar.innerHTML = `<i class="fas fa-exclamation-circle fa-beat"></i> انتهى الاشتراك! فترة سماح متبقية: (${timeStr}).`;
+    }
+
+    function removeExpiryWarning() {
+        const b = document.getElementById('expiry-warning-bar');
+        if(b) b.remove();
+    }
+</script>
+</body>
+</html>
