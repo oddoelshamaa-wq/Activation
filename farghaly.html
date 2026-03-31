@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الريموت كنترول | إدارة فرغلي</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { 
+            --gold: #fbbf24; 
+            --bg: #0f172a; 
+            --card: #1e293b; 
+            --danger: #ef4444; 
+            --success: #10b981; 
+            --text: #f8fafc;
+        }
+
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Cairo', sans-serif; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            padding: 15px; 
+        }
+
+        .admin-container { 
+            width: 100%; 
+            max-width: 500px; 
+            background: var(--card); 
+            padding: 25px; 
+            border-radius: 25px; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+        }
+
+        header { text-align: center; margin-bottom: 25px; }
+        header h1 { font-size: 22px; color: var(--gold); margin: 0; }
+        header p { font-size: 13px; color: #94a3b8; }
+
+        .status-box { 
+            background: #0d1117; 
+            padding: 20px; 
+            border-radius: 20px; 
+            text-align: center; 
+            margin-bottom: 25px; 
+            border-right: 6px solid var(--gold);
+            position: relative;
+        }
+
+        .timer-display { 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 32px; 
+            color: var(--gold); 
+            font-weight: 900; 
+            margin: 10px 0; 
+            direction: ltr;
+        }
+
+        .status-badge {
+            font-size: 14px;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 50px;
+            background: rgba(251, 191, 36, 0.1);
+        }
+
+        .input-group { margin-bottom: 15px; }
+        label { font-size: 13px; color: #94a3b8; display: block; margin-bottom: 8px; margin-right: 5px; }
+        
+        input { 
+            width: 100%; 
+            padding: 14px; 
+            background: #0d1117; 
+            border: 1px solid #334155; 
+            color: white; 
+            border-radius: 12px; 
+            font-family: 'Cairo';
+            font-size: 15px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        input:focus { outline: none; border-color: var(--gold); }
+
+        .flex-row { display: flex; gap: 10px; }
+        .flex-row > div { flex: 1; }
+
+        .btn-main { 
+            width: 100%; 
+            padding: 18px; 
+            background: var(--gold); 
+            color: #000; 
+            border: none; 
+            border-radius: 15px; 
+            font-weight: 900; 
+            font-size: 17px; 
+            cursor: pointer; 
+            margin-top: 10px;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-main:active { transform: scale(0.97); }
+
+        .btn-lock { 
+            width: 100%; 
+            padding: 14px; 
+            background: var(--danger); 
+            color: white; 
+            border: none; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            margin-top: 15px;
+            font-family: 'Cairo';
+        }
+
+        .section-title {
+            font-size: 12px;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 20px 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::after { content: ""; flex: 1; height: 1px; background: #334155; }
+
+    </style>
+</head>
+<body>
+
+<div class="admin-container">
+    <header>
+        <h1><i class="fas fa-crown"></i> ريموت كنترول فرغلي</h1>
+        <p>إدارة التراخيص والاشتراكات والتحكم عن بعد</p>
+    </header>
+
+    <div class="status-box">
+        <span class="status-badge" id="status-text">جاري التحميل...</span>
+        <div id="countdown" class="timer-display">00:00:00:00</div>
+        <div style="font-size: 11px; color: #64748b;">الوقت المتبقي للاشتراك الأساسي</div>
+    </div>
+
+    <div class="section-title"><i class="fas fa-clock"></i> تمديد الاشتراك</div>
+    <div class="flex-row">
+        <div class="input-group">
+            <label>الأيام</label>
+            <input type="number" id="days" value="0" placeholder="0">
+        </div>
+        <div class="input-group">
+            <label>الساعات</label>
+            <input type="number" id="hours" value="0" placeholder="0">
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>أيام السماح (Grace Period) بعد انتهاء الوقت:</label>
+        <input type="number" id="grace" value="2">
+    </div>
+
+    <div class="section-title"><i class="fas fa-wallet"></i> بيانات التواصل والدفع</div>
+    <div class="input-group">
+        <input type="text" id="payPhone" placeholder="رقم واتساب التواصل">
+    </div>
+    <div class="input-group">
+        <input type="text" id="accNumber" placeholder="رقم فودافون كاش أو الحساب">
+    </div>
+    <div class="input-group">
+        <input type="text" id="accName" placeholder="اسم صاحب الحساب">
+    </div>
+
+    <button class="btn-main" onclick="saveSettings()">
+        حفظ وتفعيل النظام <i class="fas fa-paper-plane"></i>
+    </button>
+
+    <button id="lock-btn" class="btn-lock" onclick="toggleManualLock()">
+        <i class="fas fa-lock"></i> قفل المنيو فوراً
+    </button>
+
+    <p style="text-align: center; font-size: 11px; color: #475569; margin-top: 20px;">
+        لوحة التحكم V49 - النسخة الاحترافية
+    </p>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+<script>
+    // إعدادات Firebase الخاصة بك
+    const firebaseConfig = {
+        apiKey: "AIzaSyDArRMLPNgFZOcaCYNOtL1YWTIBVtzN638",
+        projectId: "farghaly-4e65b",
+        databaseURL: "https://farghaly-4e65b-default-rtdb.firebaseio.com",
+        appId: "1:549106402224:web:3a963a0478e78ce56dcc75"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let currentConfig = {};
+
+    // مزامنة البيانات من السيرفر
+    db.ref('config').on('value', snap => {
+        currentConfig = snap.val() || {};
+        
+        // تعبئة الحقول بالبيانات الحالية
+        document.getElementById('payPhone').value = currentConfig.payPhone || "";
+        document.getElementById('accNumber').value = currentConfig.accNumber || "";
+        document.getElementById('accName').value = currentConfig.accName || "";
+        document.getElementById('grace').value = currentConfig.graceDays || 0;
+
+        // تحديث زر القفل
+        const lockBtn = document.getElementById('lock-btn');
+        if (currentConfig.manualLocked) {
+            lockBtn.innerHTML = '<i class="fas fa-unlock"></i> فتح النظام للعملاء';
+            lockBtn.style.background = "#10b981";
+        } else {
+            lockBtn.innerHTML = '<i class="fas fa-lock"></i> قفل المنيو فوراً';
+            lockBtn.style.background = "#ef4444";
+        }
+    });
+
+    // دالة الحفظ والتفعيل
+    function saveSettings() {
+        const d = parseInt(document.getElementById('days').value) || 0;
+        const h = parseInt(document.getElementById('hours').value) || 0;
+        const grace = parseInt(document.getElementById('grace').value) || 0;
+
+        // حساب وقت الانتهاء الجديد (الوقت الحالي + المدة المختارة)
+        const newExpiry = Date.now() + (d * 24 * 60 * 60 * 1000) + (h * 60 * 60 * 1000);
+
+        db.ref('config').update({
+            expiryDate: newExpiry,
+            graceDays: grace,
+            payPhone: document.getElementById('payPhone').value,
+            accNumber: document.getElementById('accNumber').value,
+            accName: document.getElementById('accName').value,
+            manualLocked: false
+        }).then(() => {
+            alert("✅ تم التفعيل بنجاح! التطبيق يعمل الآن.");
+            document.getElementById('days').value = 0;
+            document.getElementById('hours').value = 0;
+        });
+    }
+
+    // دالة القفل اليدوي
+    function toggleManualLock() {
+        db.ref('config/manualLocked').set(!currentConfig.manualLocked);
+    }
+
+    // العداد التنازلي للشاشة
+    setInterval(() => {
+        if(!currentConfig.expiryDate) return;
+        
+        const now = Date.now();
+        const diff = currentConfig.expiryDate - now;
+        const display = document.getElementById('countdown');
+        const statusText = document.getElementById('status-text');
+
+        if (currentConfig.manualLocked) {
+            display.innerText = "LOCKED";
+            statusText.innerText = "النظام مقفل يدوياً";
+            statusText.style.color = "#ef4444";
+        } else if (diff > 0) {
+            display.innerText = formatTime(diff);
+            statusText.innerText = "الاشتراك نشط ✅";
+            statusText.style.color = "#10b981";
+        } else {
+            const graceMs = (currentConfig.graceDays || 0) * 24 * 60 * 60 * 1000;
+            if (now < (currentConfig.expiryDate + graceMs)) {
+                display.innerText = "GRACE";
+                statusText.innerText = "في فترة السماح ⚠️";
+                statusText.style.color = "#fbbf24";
+            } else {
+                display.innerText = "EXPIRED";
+                statusText.innerText = "منتهي الصلاحية ❌";
+                statusText.style.color = "#ef4444";
+            }
+        }
+    }, 1000);
+
+    function formatTime(ms) {
+        const d = Math.floor(ms / 86400000);
+        const h = Math.floor((ms % 86400000) / 3600000);
+        const m = Math.floor((ms % 3600000) / 60000);
+        const s = Math.floor((ms % 60000) / 1000);
+        return `${d}:${h}:${m}:${s}`;
+    }
+</script>
+
+</body>
+</html>
